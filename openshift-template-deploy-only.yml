@@ -1,0 +1,77 @@
+# This OpenShift template will deploy a pre-build docker image from DockerHub
+# Use it from the CLI with:
+# $ oc new-app -f openshift-template-deploy-only.yml -p FLOW_TOKEN=xxx
+
+kind: Template
+apiVersion: v1
+metadata:
+  name: flowdock-notifier-deployer
+  annotations:
+    description: Deploys the OpenShift Flowdock Notifier application.
+    tags: openshift,flowdock,notification
+labels:
+  template: flowdock-notifier-deployer
+
+parameters:
+
+- name: FLOW_TOKEN
+  description: The token of the (Flowdock) flow to which the notifications will be sent
+  required: true
+
+- name: IMAGE
+  description: The reference of the Docker image to deploy
+  value: vbehar/openshift-flowdock-notifier:latest
+- name: SENDER_NAME
+  description: The name of the expeditor of the notifications (your OpenShift cluster name, for example)
+  value: OpenShift
+
+objects:
+
+- kind: ServiceAccount
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+
+- kind: RoleBinding
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+  roleRef:
+    name: view
+  subjects:
+  - kind: ServiceAccount
+    name: flowdock-notifier
+
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+  spec:
+    replicas: 1
+    strategy:
+      type: Rolling
+      rollingParams:
+        maxUnavailable: 0
+        maxSurge: 1
+    template:
+      metadata:
+        labels:
+          deploymentconfig: flowdock-notifier
+      spec:
+        serviceAccountName: flowdock-notifier
+        containers:
+        - name: flowdock-notifier
+          image: ${IMAGE}
+          env:
+          - name: NOTIFIERS_DEFAULT_TOKEN
+            value: ${FLOW_TOKEN}
+          - name: NOTIFIERS_DEFAULT_FROM_NAME
+            value: ${SENDER_NAME}
+          - name: ENABLE_DEFAULT_BUILDS_WATCHER
+            value: "true"
+          - name: DEFAULT_BUILDS_WATCHER_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+    triggers:
+    - type: ConfigChange

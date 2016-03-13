@@ -1,0 +1,108 @@
+# This OpenShift template will build a docker image using the Dockerfile found in the git repository, and then deploy it
+# Use it from the CLI with:
+# $ oc new-app -f openshift-template-full.yml -p FLOW_TOKEN=xxx
+
+kind: Template
+apiVersion: v1
+metadata:
+  name: flowdock-notifier
+  annotations:
+    description: Build and deploy the OpenShift Flowdock Notifier application.
+    tags: openshift,flowdock,notification
+labels:
+  template: flowdock-notifier
+
+parameters:
+
+- name: FLOW_TOKEN
+  description: The token of the (Flowdock) flow to which the notifications will be sent
+  required: true
+
+- name: GITHUB_REPO
+  description: The name of the GitHub repository (format "owner/repo")
+  value: vbehar/openshift-flowdock-notifier
+- name: SENDER_NAME
+  description: The name of the expeditor of the notifications (your OpenShift cluster name, for example)
+  value: OpenShift
+
+objects:
+
+- kind: ServiceAccount
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+
+- kind: RoleBinding
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+  roleRef:
+    name: view
+  subjects:
+  - kind: ServiceAccount
+    name: flowdock-notifier
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+  spec:
+    strategy:
+      type: Docker
+    source:
+      type: Git
+      git:
+        uri: https://github.com/${GITHUB_REPO}
+    output:
+      to:
+        kind: ImageStreamTag
+        name: flowdock-notifier:latest
+    triggers:
+    - type: ConfigChange
+
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: flowdock-notifier
+  spec:
+    replicas: 1
+    strategy:
+      type: Rolling
+      rollingParams:
+        maxUnavailable: 0
+        maxSurge: 1
+    template:
+      metadata:
+        labels:
+          deploymentconfig: flowdock-notifier
+      spec:
+        serviceAccountName: flowdock-notifier
+        containers:
+        - name: flowdock-notifier
+          image: flowdock-notifier
+          env:
+          - name: NOTIFIERS_DEFAULT_TOKEN
+            value: ${FLOW_TOKEN}
+          - name: NOTIFIERS_DEFAULT_FROM_NAME
+            value: ${SENDER_NAME}
+          - name: ENABLE_DEFAULT_BUILDS_WATCHER
+            value: "true"
+          - name: DEFAULT_BUILDS_WATCHER_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        from:
+          kind: ImageStreamTag
+          name: flowdock-notifier:latest
+        containerNames:
+        - flowdock-notifier
