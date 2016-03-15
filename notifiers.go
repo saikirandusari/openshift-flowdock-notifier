@@ -36,8 +36,10 @@ const (
 	<dd><pre>{{.Logs}}</pre></dd>
 	<dt>Events</dt>
 	<dd>
-		<pre>{{range .Events}}{{.}}
-		{{end}}
+		<pre>
+{{range .Events}}
+{{.}}
+{{end}}
 		</pre>
 	</dd>
 </dl>`
