@@ -10,6 +10,8 @@ import (
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -26,6 +28,7 @@ type Event interface {
 	IsSuccess() bool
 	IsFailure() bool
 	Logs() string
+	NodeName() string
 }
 
 type BuildEvent struct {
@@ -106,6 +109,24 @@ func (event *BuildEvent) IsFailure() bool {
 	default:
 		return false
 	}
+}
+
+func (event *BuildEvent) NodeName() string {
+	_, kclient, err := event.factory.Clients()
+	if err != nil {
+		return fmt.Sprintf("Can't get openshift client: %v", err)
+	}
+
+	label := labels.Set{buildapi.BuildLabel: event.Build.Name}.AsSelector()
+	pods, err := kclient.Pods(event.Build.Namespace).List(label, fields.Everything())
+	if err != nil {
+		return fmt.Sprintf("Can't get pods: %v", err)
+	}
+
+	if len(pods.Items) > 0 {
+		return pods.Items[0].Spec.NodeName
+	}
+	return ""
 }
 
 func (event *BuildEvent) Logs() string {
