@@ -9,9 +9,8 @@ import (
 	buildapi "github.com/openshift/origin/pkg/build/api"
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
+	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -28,6 +27,7 @@ type Event interface {
 	IsSuccess() bool
 	IsFailure() bool
 	Logs() string
+	Events() []string
 	NodeName() string
 }
 
@@ -114,18 +114,13 @@ func (event *BuildEvent) IsFailure() bool {
 func (event *BuildEvent) NodeName() string {
 	_, kclient, err := event.factory.Clients()
 	if err != nil {
-		return fmt.Sprintf("Can't get openshift client: %v", err)
+		return fmt.Sprintf("Can't get kube client: %v", err)
 	}
 
-	label := labels.Set{buildapi.BuildLabel: event.Build.Name}.AsSelector()
-	pods, err := kclient.Pods(event.Build.Namespace).List(label, fields.Everything())
-	if err != nil {
-		return fmt.Sprintf("Can't get pods: %v", err)
+	if pod, err := kclient.Pods(event.Build.Namespace).Get(buildapi.GetBuildPodName(event.Build)); err == nil {
+		return pod.Spec.NodeName
 	}
 
-	if len(pods.Items) > 0 {
-		return pods.Items[0].Spec.NodeName
-	}
 	return ""
 }
 
@@ -147,4 +142,35 @@ func (event *BuildEvent) Logs() string {
 	}
 
 	return string(bytes)
+}
+
+func (event *BuildEvent) Events() []string {
+	_, kclient, err := event.factory.Clients()
+	if err != nil {
+		return []string{fmt.Sprintf("Can't get kube client: %v", err)}
+	}
+
+	events, _ := kclient.Events(event.Build.Namespace).Search(event.Build)
+	if events == nil {
+		events = &kapi.EventList{}
+	}
+	// get also pod events and merge it all into one list
+	if pod, err := kclient.Pods(event.Build.Namespace).Get(buildapi.GetBuildPodName(event.Build)); err == nil {
+		if podEvents, _ := kclient.Events(event.Build.Namespace).Search(pod); podEvents != nil {
+			events.Items = append(events.Items, podEvents.Items...)
+		}
+	}
+
+	eventsAsString := []string{}
+	for _, evt := range events.Items {
+		optionalSourceHost := ""
+		if len(evt.Source.Host) > 0 {
+			optionalSourceHost = fmt.Sprintf("on %s", evt.Source.Host)
+		}
+		evtAsString := fmt.Sprintf("From %s %s: %s (seen %d times between %v and %v)",
+			evt.Source.Component, optionalSourceHost, evt.Message, evt.Count, evt.FirstTimestamp, evt.LastTimestamp)
+		eventsAsString = append(eventsAsString, evtAsString)
+	}
+
+	return eventsAsString
 }

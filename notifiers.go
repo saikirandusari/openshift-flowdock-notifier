@@ -34,6 +34,14 @@ const (
 	<dd>{{.NodeName}}</dd>
 	<dt>Logs</dt>
 	<dd><pre>{{.Logs}}</pre></dd>
+	<dt>Events</dt>
+	<dd>
+		<pre>
+		{{range .Events}}
+		{{.}}
+		{{end}}
+		</pre>
+	</dd>
 </dl>`
 )
 
