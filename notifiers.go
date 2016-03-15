@@ -33,7 +33,7 @@ const (
 	<dt>Node</dt>
 	<dd>{{.NodeName}}</dd>
 	<dt>Logs</dt>
-	<dd>{{.Logs}}</dd>
+	<dd><pre>{{.Logs}}</pre></dd>
 </dl>`
 )
 
