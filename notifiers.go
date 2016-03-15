@@ -30,6 +30,8 @@ const (
 	<dd>{{.Input}}</dd>
 	<dt>Output</dt>
 	<dd>{{.Output}}</dd>
+	<dt>Logs</dt>
+	<dd>{{.Logs}}</dd>
 </dl>`
 )
 

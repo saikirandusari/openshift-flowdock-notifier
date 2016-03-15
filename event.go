@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
 	buildapi "github.com/openshift/origin/pkg/build/api"
+	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/watch"
@@ -23,17 +25,20 @@ type Event interface {
 	Status() string
 	IsSuccess() bool
 	IsFailure() bool
+	Logs() string
 }
 
 type BuildEvent struct {
-	Event watch.Event
-	Build *buildapi.Build
+	Event   watch.Event
+	Build   *buildapi.Build
+	factory clientcmd.Factory
 }
 
-func NewBuildEvent(event watch.Event) *BuildEvent {
+func NewBuildEvent(factory clientcmd.Factory, event watch.Event) *BuildEvent {
 	return &BuildEvent{
-		Event: event,
-		Build: event.Object.(*buildapi.Build),
+		Event:   event,
+		Build:   event.Object.(*buildapi.Build),
+		factory: factory,
 	}
 }
 
@@ -101,4 +106,24 @@ func (event *BuildEvent) IsFailure() bool {
 	default:
 		return false
 	}
+}
+
+func (event *BuildEvent) Logs() string {
+	oclient, _, err := event.factory.Clients()
+	if err != nil {
+		return fmt.Sprintf("Can't get openshift client: %v", err)
+	}
+
+	logs, err := oclient.BuildLogs(event.Build.Namespace).Get(event.Build.Name, buildapi.BuildLogOptions{}).Stream()
+	if err != nil {
+		return fmt.Sprintf("Can't get build logs: %v", err)
+	}
+	defer logs.Close()
+
+	bytes, err := ioutil.ReadAll(logs)
+	if err != nil {
+		return fmt.Sprintf("Can't read build logs: %v", err)
+	}
+
+	return string(bytes)
 }

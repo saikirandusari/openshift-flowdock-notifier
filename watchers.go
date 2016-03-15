@@ -40,7 +40,7 @@ func (watcher *BuildsWatcher) Watch(factory clientcmd.Factory, notifiers map[str
 	}
 
 	callback := func(event watch.Event) {
-		buildEvent := NewBuildEvent(event)
+		buildEvent := NewBuildEvent(factory, event)
 		if watcher.shouldAcceptEvent(buildEvent) {
 			glog.V(3).Infof("Accepting build event %+v", buildEvent)
 			for _, channel := range channels {
