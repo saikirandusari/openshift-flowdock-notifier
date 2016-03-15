@@ -130,7 +130,9 @@ func (event *BuildEvent) Logs() string {
 		return fmt.Sprintf("Can't get openshift client: %v", err)
 	}
 
-	logs, err := oclient.BuildLogs(event.Build.Namespace).Get(event.Build.Name, buildapi.BuildLogOptions{}).Stream()
+	logs, err := oclient.BuildLogs(event.Build.Namespace).Get(event.Build.Name, buildapi.BuildLogOptions{
+		TailLines: func(i int64) *int64 { return &i }(30),
+	}).Stream()
 	if err != nil {
 		return fmt.Sprintf("Can't get build logs: %v", err)
 	}
