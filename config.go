@@ -31,6 +31,7 @@ type FlowdockNotifierConfig struct {
 	FromAddress     string
 	FromName        string
 	Source          string
+	Tags            []string
 }
 
 func LoadAppConfig() (*AppConfig, error) {

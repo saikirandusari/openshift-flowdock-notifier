@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 
 	"github.com/golang/glog"
@@ -51,6 +52,7 @@ type FlowdockNotifier struct {
 	FlowdockClient  *flowdock.Client
 	SubjectTemplate *template.Template
 	ContentTemplate *template.Template
+	TagsTemplates   []*template.Template
 }
 
 func NewFlowdockNotifier(config FlowdockNotifierConfig) (*FlowdockNotifier, error) {
@@ -64,12 +66,22 @@ func NewFlowdockNotifier(config FlowdockNotifierConfig) (*FlowdockNotifier, erro
 		return nil, err
 	}
 
+	tagsTemplates := []*template.Template{}
+	for i, tagTmpl := range config.Tags {
+		tmpl, err := template.New(fmt.Sprintf("tag-%d", i)).Parse(tagTmpl)
+		if err != nil {
+			return nil, err
+		}
+		tagsTemplates = append(tagsTemplates, tmpl)
+	}
+
 	notifier := &FlowdockNotifier{
 		Config:          config,
 		Channel:         make(chan Event),
 		FlowdockClient:  flowdock.NewClient(nil),
 		SubjectTemplate: subjectTemplate,
 		ContentTemplate: contentTemplate,
+		TagsTemplates:   tagsTemplates,
 	}
 	return notifier, nil
 }
@@ -99,6 +111,16 @@ func (notifier *FlowdockNotifier) sendNotification(event Event) error {
 		return err
 	}
 
+	tags := []string{}
+	for _, tagTmpl := range notifier.TagsTemplates {
+		tag, err := executeTemplate(tagTmpl, event)
+		if err != nil {
+			glog.Warningf("Ignoring tag template: %v", err)
+			continue
+		}
+		tags = append(tags, tag)
+	}
+
 	fromAddress := notifier.Config.FromAddress
 	switch {
 	case event.IsSuccess():
@@ -115,6 +137,7 @@ func (notifier *FlowdockNotifier) sendNotification(event Event) error {
 		FromName:    notifier.Config.FromName,
 		Subject:     subject,
 		Content:     content,
+		Tags:        tags,
 	})
 	if err != nil {
 		return err
