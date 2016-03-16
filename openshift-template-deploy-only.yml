@@ -24,6 +24,9 @@ parameters:
 - name: SENDER_NAME
   description: The name of the expeditor of the notifications (your OpenShift cluster name, for example)
   value: OpenShift
+- name: TIMEZONE
+  description: The timezone of the pods
+  value: Europe/Paris
 
 objects:
 
@@ -73,5 +76,7 @@ objects:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: TZ
+            value: ${TIMEZONE}
     triggers:
     - type: ConfigChange
