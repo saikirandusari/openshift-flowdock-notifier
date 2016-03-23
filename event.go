@@ -7,6 +7,7 @@ import (
 	"time"
 
 	buildapi "github.com/openshift/origin/pkg/build/api"
+	buildutil "github.com/openshift/origin/pkg/build/util"
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -29,6 +30,7 @@ type Event interface {
 	Logs() string
 	Events() []string
 	NodeName() string
+	Url() string
 }
 
 type BuildEvent struct {
@@ -122,6 +124,19 @@ func (event *BuildEvent) NodeName() string {
 	}
 
 	return ""
+}
+
+func (event *BuildEvent) Url() string {
+	config, err := event.factory.OpenShiftClientConfig.ClientConfig()
+	if err != nil {
+		return fmt.Sprintf("Can't get openshift config: %v", err)
+	}
+
+	return fmt.Sprintf("%s/console/project/%s/browse/builds/%s/%s?tab=logs",
+		config.Host,
+		event.Build.Namespace,
+		buildutil.ConfigNameForBuild(event.Build),
+		event.Build.Name)
 }
 
 func (event *BuildEvent) Logs() string {

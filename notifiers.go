@@ -43,6 +43,8 @@ const (
 {{end}}
 		</pre>
 	</dd>
+	<dt>Link</dt>
+	<dd>{{.Url}}</dd>
 </dl>`
 )
 
@@ -138,6 +140,7 @@ func (notifier *FlowdockNotifier) sendNotification(event Event) error {
 		Subject:     subject,
 		Content:     content,
 		Tags:        tags,
+		Link:        event.Url(),
 	})
 	if err != nil {
 		return err
