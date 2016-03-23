@@ -20,7 +20,7 @@ type BuildsWatcher struct {
 	Config BuildsWatcherConfig
 }
 
-func NewBuildsWatcher(name string, config BuildsWatcherConfig) Watcher {
+func NewBuildsWatcher(name string, config BuildsWatcherConfig) *BuildsWatcher {
 	return &BuildsWatcher{
 		Name:   name,
 		Config: config,
@@ -59,9 +59,7 @@ func (watcher *BuildsWatcher) Watch(factory clientcmd.Factory, notifiers map[str
 func (watcher *BuildsWatcher) shouldAcceptEvent(buildEvent *BuildEvent) bool {
 
 	switch buildEvent.Event.Type {
-	case watch.Deleted:
-		return false
-	case watch.Error:
+	case watch.Deleted, watch.Error:
 		return false
 	}
 
