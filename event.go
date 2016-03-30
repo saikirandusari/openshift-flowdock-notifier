@@ -34,16 +34,18 @@ type Event interface {
 }
 
 type BuildEvent struct {
-	Event   watch.Event
-	Build   *buildapi.Build
-	factory clientcmd.Factory
+	Event              watch.Event
+	Build              *buildapi.Build
+	factory            clientcmd.Factory
+	openshiftPublicUrl string
 }
 
 func NewBuildEvent(factory clientcmd.Factory, event watch.Event) *BuildEvent {
 	return &BuildEvent{
-		Event:   event,
-		Build:   event.Object.(*buildapi.Build),
-		factory: factory,
+		Event:              event,
+		Build:              event.Object.(*buildapi.Build),
+		factory:            factory,
+		openshiftPublicUrl: defaultOpenshiftPublicUrl(factory),
 	}
 }
 
@@ -127,13 +129,8 @@ func (event *BuildEvent) NodeName() string {
 }
 
 func (event *BuildEvent) Url() string {
-	config, err := event.factory.OpenShiftClientConfig.ClientConfig()
-	if err != nil {
-		return fmt.Sprintf("Can't get openshift config: %v", err)
-	}
-
 	return fmt.Sprintf("%s/console/project/%s/browse/builds/%s/%s?tab=logs",
-		config.Host,
+		event.openshiftPublicUrl,
 		event.Build.Namespace,
 		buildutil.ConfigNameForBuild(event.Build),
 		event.Build.Name)
